@@ -33,8 +33,9 @@ Recommendation: Set `Settings.CircleFitting` to `always` or `never` to have cons
 % Settings.Source = 'data\rtanalysis_ozlem_drop3_selection';
 % Settings.Source  = 'data\testdata\1-02012022151248-538.tiff';             
 % Settings.Source  = 'data\testdata_small\';
+% Settings.Source = 'E:\R-t analysis\drop 3\';            % STRING with (local) path to file or folder with image files.
 
-Settings.Source = 'E:\R-t analysis\drop 3\';            % STRING with (local) path to file or folder with image files.
+Settings.Source = 'E:\R-t analysis\drop2';            % STRING with (local) path to file or folder with image files.
 Settings.LensMagnification = 'NikonX4';                 % STRING optional Choose a lens preset used for this experiment to 
     % automatically determine the lateral conversion factor from pixels to meters. Valid options are: ZeisX2, ZeisX5, 
     % ZeisX10, NikonX2, NikonX4. More options can be added to Settings.
@@ -42,7 +43,7 @@ Settings.TimeInterval = 'FromFile';                     % STRING `'FromFile'` or
     % read from the image filename. This datetime is converted to seconds from start automatically. 
     % `Settings.TimeIntervalFormat` and `Settings.TimeIntervalFilenameFormat` must be set. If NUMERIC, give the time in 
     % seconds between each frame.
-    Settings.TimeIntervalFormat = "ddMMyyyyHHmmss";     % STRING datetime format. See MATLAB documentation on datetime.
+    Settings.TimeIntervalFormat = 'ddMMyyyyHHmmss';     % STRING datetime format. See MATLAB documentation on datetime.
     Settings.TimeIntervalFilenameFormat = {'-', '-'};   % CELL with 2 strings giving the pattern before the 
             % TimeIntervalFormat and after.
        % example: 1-02012022152110-1015 -->  {'-', '-'}, with Settings.TimeIntervalFormat = "ddMMyyyyHHmmss"
@@ -78,7 +79,7 @@ Settings.ImageProcessing.EnhanceContrast = true; % BOOLEAN enhance image contras
     % since bw threshold is determined afterwards).
 
 % Display settings
-Settings.Display.IndividualPlots = true; % BOOLEAN Show plots on screen that are created with every iteration (image that 
+Settings.Display.IndividualPlots = false; % BOOLEAN Show plots on screen that are created with every iteration (image that 
     % shows the fit). Code asks to turn this off if there are >3 images, since it will flood memory.
 Settings.Display.TotalPlots = true; % BOOLEAN Show plots that are created at the end of the code and only once (independent 
     % of number of images present).
@@ -140,13 +141,13 @@ set(0,'defaultAxesFontSize', Settings.PlotFontSize);
 
 %not checked: Settings.TimeIntervalFilenameFormat, Settings.ImageCrop, Settings.FigureSize
 status = CheckIfClass('numeric', {'Settings.ImageSkip', 'Settings.PlotFontSize', 'Settings.FigureSaveResolution', ...
-    'Settings.CreateTimelapseFrameRate', 'Settings.CreateTimelapseImageCrop', 'Settings.', 'Settings.', 'Settings.'});
-status2 = CheckIfClass('logical', {'Settings.EnhanceContrast', 'Settings.Save_Figures', 'Settings.Save_PNG', ...
+    'Settings.CreateTimelapseFrameRate', 'Settings.CreateTimelapseImageCrop'});
+status2 = CheckIfClass('logical', {'Settings.ImageProcessing.EnhanceContrast', 'Settings.Save_Figures', 'Settings.Save_PNG', ...
     'Settings.Save_TIFF', 'Settings.Save_FIG', 'Settings.Display.LogoAtStart', 'Settings.Display.IndividualPlots', ...
     'Settings.Display.TotalPlots', 'Settings.Plot_VisualizeCircle', 'Settings.Plot_TimeVsRadius', ...
     'Settings.Plot_TimeVsRadius_LogX', 'Settings.Plot_TimeVsRadius_LogY', 'Settings.Save_Data', 'Settings.CreateTimelapse'});
-status3 = CheckIfClass('char', {'Settings.Source', 'Settings.TimeintervalFormat', 'Settings.CircleFitting', ...
-    'Settings.Save_Folder', 'Settings.CreateTimelapseTimeScale', 'Settings.', 'Settings.'});
+status3 = CheckIfClass('char', {'Settings.Source', 'Settings.TimeIntervalFormat', 'Settings.CircleFitting', ...
+    'Settings.Save_Folder', 'Settings.CreateTimelapseTimeScale'});
 if min([status, status2, status3]) == 0
     Logging(1, 'Could not continue because of invalid settings (see WARNINGs above).')
 else
@@ -191,7 +192,7 @@ if Settings.AnalyzeFolder
     if ~isfield(Settings, 'TimeInterval')
         Logging(1, 'TimeInterval is not set. Add "Settings.Timeinterval" to your settings.')
     elseif strcmpi(Settings.TimeInterval, 'FromFile')
-        Logging(5, 'Timeintervals will be determined from filenames.')
+        Logging(5, 'Time intervals will be determined from filenames.')
     elseif CheckIfClass('numeric', {'Settings.TimeInterval'})
         Settings.TimeRange = 0:Settings.TimeInterval:Settings.TimeInterval*Settings.ImageCount_SourceFolder;
         Settings.TimeRange = Settings.TimeRange(1:Settings.ImageSkip:Settings.ImageCount_SourceFolder);
@@ -385,8 +386,8 @@ for i = 1:Settings.ImageCount
     
     [CC2, idx] = sort(cellfun(@numel,CC.PixelIdxList), 'descend');
     
-    if CC2(1) < 2*CC2(2) %todo: still save image.
-        Logging(3, 'No discrete solution found.')
+    if CC2(1) < 1.5*CC2(2) %todo: still save image.
+        Logging(3, append('No discrete solution found for image ', Image, '.'))
     else
         CC3 = CC; %get the main pixellist
         CC3.PixelIdxList = CC3.PixelIdxList{idx(1)};
