@@ -2,6 +2,11 @@ clc; clear all; Settings = struct(); Settings.LensPresets = struct(); addpath('D
 
 %% ABOUT
 
+%{
+This program analyzes 
+
+%}
+
 
 %% TODO
 %{
@@ -12,6 +17,8 @@ clc; clear all; Settings = struct(); Settings.LensPresets = struct(); addpath('D
 - create timelapse in the end
 - Plot eccentricity, surface area, circularity
 - Plot centroids: a tail on the image
+- Check if all filenames satisfy TimeIntervalFormat before running code.
+I.e. calculate this beforehand, not during the main loop.
 
 %}
 
@@ -22,9 +29,9 @@ clc; clear all; Settings = struct(); Settings.LensPresets = struct(); addpath('D
 % Settings.Source = 'E:\R-t analysis\drop 3\';
 % Settings.Source = 'data\rtanalysis_ozlem_drop3_selection';
 % Settings.Source  = 'data\testdata\1-02012022151248-538.tiff';
-Settings.Source  = 'data\testdata\rig.tiff';
+Settings.Source  = 'data\testdata_small\';
 Settings.LensMagnification = 'NikonX4'; % if not set, pixels will be use as unit.
-Settings.TimeInterval = 10;%'FromFile'; % either int with timeinterval in seconds, or FromFile to read datetime stamp from filename
+Settings.TimeInterval = 'FromFile'; % either int with timeinterval in seconds, or FromFile to read datetime stamp from filename
     Settings.TimeIntervalFormat = "ddMMyyyyHHmmss";
     Settings.TimeIntervalFilenameFormat = {'-', '-'}; % pattern before and after datetimestring
         % example: 1-02012022152110-1015 -->  {'-', '-'}, with Settings.TimeIntervalFormat = "ddMMyyyyHHmmss"
@@ -252,14 +259,12 @@ if ~Settings.Save_Data
     Logging(3, 'Data will not be saved!')
 end
 
-
 Logging(6, 'Settings checked and all valid.')
 tic
 
+%% Init
 
-
-%% Circle fitting
-
+% Init Results struct
 Results = struct();
 Results.AreaPix = nan(1,Settings.ImageCount);
 Results.DiameterPix = nan(1,Settings.ImageCount);
@@ -268,6 +273,23 @@ Results.Circularity = nan(1,Settings.ImageCount);
 Results.CircleFittingUsed = nan(1,Settings.ImageCount);
 Results.Time = {};
 Results.Centroid = {};
+
+
+% Determine time
+if strcmpi(Settings.TimeInterval, 'FromFile')
+    for i = 1:Settings.ImageCount 
+        Image = Settings.Analysis_ImageList{i};
+        [~, datetimestamp, ~] = fileparts(Image);
+        datetimestamp_sub = ExtractSubstrFromString(datetimestamp, Settings.TimeIntervalFilenameFormat);
+        Results.Time{i} = datetime(datetimestamp_sub, 'InputFormat', Settings.TimeIntervalFormat); 
+    end
+    Results.TimeFromStart = cellfun(@(x) seconds(time(between(Results.Time{1}, x, 'time'))), Results.Time);
+else %todo: if numeric, else error
+    Results.TimeFromStart = (1:Settings.ImageCount) * Settings.TimeInterval;
+end
+
+
+%% Main loop
 
 if strcmpi(Settings.TimeInterval, 'FromFile')
     Results.TimeFormat = 'DateTimeStamp';
@@ -291,19 +313,12 @@ for i = 1:Settings.ImageCount
     Image = Settings.Analysis_ImageList{i};
 
     Logging(6, append('Image ', num2str(i), ' now being analyzed.'))
-    
-    if strcmpi(Settings.TimeInterval, 'FromFile')
-        [~, datetimestamp, ~] = fileparts(Image);
-        datetimestamp_sub = ExtractSubstrFromString(datetimestamp, Settings.TimeIntervalFilenameFormat);
-        Results.Time{i} = datetime(datetimestamp_sub, 'InputFormat', Settings.TimeIntervalFormat); 
-    end
-        
-    
+ 
     I_or = imread(Image);
     I_or = I_or(:,:,1:3); %incase x4 tiff
     crp = Settings.ImageCrop;
-    dx = size(I_or, 1);
-    dy = size(I_or, 2);
+    dx = size(I_or, 2);
+    dy = size(I_or, 1);
     I_or = imcrop(I_or, [crp(4), crp(1), dx-crp(2)-crp(4), dy-crp(1)-crp(3)]);
     clear crp dx dy
     I = rgb2gray(I_or);
@@ -337,7 +352,7 @@ for i = 1:Settings.ImageCount
         % determine if touching boundary of image
         TouchingBoundary = false;
         extrema = regionprops(I2, 'Extrema').Extrema; % [top-left top-right right-top right-bottom bottom-right bottom-left left-bottom left-top].
-        if min(floor(extrema(:,1))) == 0 || max(ceil(extrema(:,1))) == size(I2,1) ||  min(floor(extrema(:,2))) == 0 || max(ceil(extrema(:,2))) == size(I2,2)
+        if min(floor(extrema(:,1))) == 0 || max(floor(extrema(:,1))) == size(I2,2) ||  min(floor(extrema(:,2))) == 0 || max(floor(extrema(:,2))) == size(I2,1)
             Logging(6, 'Droplet is toching one of the borders')
             TouchingBoundary = true;
         end
@@ -370,13 +385,7 @@ for i = 1:Settings.ImageCount
     end
 end
 
-%%
-
-if strcmpi(Settings.TimeInterval, 'FromFile')
-    Results.TimeFromStart = cellfun(@(x) seconds(time(between(Results.Time{1}, x, 'time'))), Results.Time);
-else
-    Results.TimeFromStart = 1:Settings.ImageCount * Settings.TimeInterval;
-end
+%% Post
 
 if strcmpi(Settings.DistanceUnit, 'pix')
     Logging(3, 'No distance unit known, result data will not be converted to SI units.')

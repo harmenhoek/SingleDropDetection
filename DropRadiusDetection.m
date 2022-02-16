@@ -17,6 +17,8 @@ This program analyzes
 - create timelapse in the end
 - Plot eccentricity, surface area, circularity
 - Plot centroids: a tail on the image
+- Check if all filenames satisfy TimeIntervalFormat before running code.
+I.e. calculate this beforehand, not during the main loop.
 
 %}
 
@@ -27,9 +29,9 @@ This program analyzes
 Settings.Source = 'E:\R-t analysis\drop 3\';
 % Settings.Source = 'data\rtanalysis_ozlem_drop3_selection';
 % Settings.Source  = 'data\testdata\1-02012022151248-538.tiff';
-% Settings.Source  = 'data\testdata\bot.tiff';
+% Settings.Source  = 'data\testdata_small\';
 Settings.LensMagnification = 'NikonX4'; % if not set, pixels will be use as unit.
-Settings.TimeInterval = 10;%'FromFile'; % either int with timeinterval in seconds, or FromFile to read datetime stamp from filename
+Settings.TimeInterval = 'FromFile'; % either int with timeinterval in seconds, or FromFile to read datetime stamp from filename
     Settings.TimeIntervalFormat = "ddMMyyyyHHmmss";
     Settings.TimeIntervalFilenameFormat = {'-', '-'}; % pattern before and after datetimestring
         % example: 1-02012022152110-1015 -->  {'-', '-'}, with Settings.TimeIntervalFormat = "ddMMyyyyHHmmss"
@@ -39,7 +41,7 @@ Settings.ImageCrop = [0 0 0 32]; %top right down left
 
 %% SETTINGS
 
-Settings.CircleFitting = 'boundaryonly'; %always, never, boundaryonly
+Settings.CircleFitting = 'always'; %always, never, boundaryonly
 
 Settings.ImageSkip = 1;
 
@@ -52,9 +54,6 @@ Settings.LensPresets.NikonX4 = 2700;                % FLOAT   pixels per mm.
 
 % Image processing
 Settings.ImageProcessing.EnhanceContrast = true;
-
-Settings.Save_Figures = false;
-Settings.Save_Data = false;
 
 % Display settings
 Settings.Display.IndividualPlots = true;
@@ -74,14 +73,13 @@ Settings.FigureSaveResolution = 300; % dpi
 Settings.Save_Folder = 'E:\results'; %local path or full path
 Settings.Save_Figures = true;
     Settings.Save_PNG = true;
-    Settings.Save_TIFF = true;
+    Settings.Save_TIFF = false;
     Settings.Save_FIG = false;
 Settings.Save_Data = true;
 Settings.CreateTimelapse = true;
     Settings.CreateTimelapseFrameRate = 15;
     Settings.CreateTimelapseImageCrop = 0.5;
     Settings.CreateTimelapseTimeScale = 'variable';  %supported: variable, min, sec, hrs, auto
-
 
 
 global LogLevel
@@ -257,14 +255,12 @@ if ~Settings.Save_Data
     Logging(3, 'Data will not be saved!')
 end
 
-
 Logging(6, 'Settings checked and all valid.')
 tic
 
+%% Init
 
-
-%% Circle fitting
-
+% Init Results struct
 Results = struct();
 Results.AreaPix = nan(1,Settings.ImageCount);
 Results.DiameterPix = nan(1,Settings.ImageCount);
@@ -274,11 +270,27 @@ Results.CircleFittingUsed = nan(1,Settings.ImageCount);
 Results.Time = {};
 Results.Centroid = {};
 
+
+% Determine time
 if strcmpi(Settings.TimeInterval, 'FromFile')
-    Results.TimeFormat = 'DateTimeStamp';
-else
-    Results.TimeFormat = 'SecondsFromStart';
+    Logging(5, 'Timestamps are read from image files ...')
+    for i = 1:Settings.ImageCount 
+        Image = Settings.Analysis_ImageList{i};
+        [~, datetimestamp, ext] = fileparts(Image);
+        try
+            datetimestamp_sub = ExtractSubstrFromString(datetimestamp, Settings.TimeIntervalFilenameFormat);
+        catch
+            Logging(1, append('It seems like not all images have the right filename to extract the datetime stamp from it. It could not be determined for: ', datetimestamp, ext, '.'))
+        end
+        Results.Time{i} = datetime(datetimestamp_sub, 'InputFormat', Settings.TimeIntervalFormat); 
+    end
+    Results.TimeFromStart = cellfun(@(x) seconds(time(between(Results.Time{1}, x, 'time'))), Results.Time);
+else % todo: if numeric, else error
+    Results.TimeFromStart = (1:Settings.ImageCount) * Settings.TimeInterval;
 end
+
+
+%% Main loop
 
 %Initiate time remaining display. Account for timelapse making, PNG vs TIFF.
 TimeRemaining = TimeTracker;
@@ -296,19 +308,12 @@ for i = 1:Settings.ImageCount
     Image = Settings.Analysis_ImageList{i};
 
     Logging(6, append('Image ', num2str(i), ' now being analyzed.'))
-    
-    if strcmpi(Settings.TimeInterval, 'FromFile')
-        [~, datetimestamp, ~] = fileparts(Image);
-        datetimestamp_sub = ExtractSubstrFromString(datetimestamp, Settings.TimeIntervalFilenameFormat);
-        Results.Time{i} = datetime(datetimestamp_sub, 'InputFormat', Settings.TimeIntervalFormat); 
-    end
-        
-    
+ 
     I_or = imread(Image);
     I_or = I_or(:,:,1:3); %incase x4 tiff
     crp = Settings.ImageCrop;
-    dx = size(I_or, 1);
-    dy = size(I_or, 2);
+    dx = size(I_or, 2);
+    dy = size(I_or, 1);
     I_or = imcrop(I_or, [crp(4), crp(1), dx-crp(2)-crp(4), dy-crp(1)-crp(3)]);
     clear crp dx dy
     I = rgb2gray(I_or);
@@ -375,13 +380,7 @@ for i = 1:Settings.ImageCount
     end
 end
 
-%%
-
-if strcmpi(Settings.TimeInterval, 'FromFile')
-    Results.TimeFromStart = cellfun(@(x) seconds(time(between(Results.Time{1}, x, 'time'))), Results.Time);
-else
-    Results.TimeFromStart = 1:Settings.ImageCount * Settings.TimeInterval;
-end
+%% Post
 
 if strcmpi(Settings.DistanceUnit, 'pix')
     Logging(3, 'No distance unit known, result data will not be converted to SI units.')
@@ -415,8 +414,6 @@ if Settings.CreateTimelapse && Settings.ImageCount > 1 && (Settings.Save_PNG == 
     CreateTimeLapseFunc(savefolder_sub_VisualizeCircle, basename, Settings.CreateTimelapseFrameRate, Settings.CreateTimelapseImageCrop, Results.TimeFromStart, Settings.CreateTimelapseTimeScale)
     Logging(6, 'Timelapse creation finished successfully.')
 end
-
-
 
 %% 7 - Finish
 
