@@ -1,4 +1,4 @@
-# SingleDropDetection
+# ꜱɪɴɢʟᴇ ᴅʀᴏᴘ ʀᴀᴅɪᴜꜱ ᴅᴇᴛᴇᴄᴛɪᴏɴ
  
 This code detects a single drop from an image file and extracts the radius and other parameters from it.<br>
 Input: image file(s) (png, tif(f), jp(e)g, bmp, gif). With single (dark) drop on lighter background. The greater the contrast, the more accurate the results.
@@ -30,13 +30,14 @@ Recommendation: Set `Settings.CircleFitting` to `always` or `never` to have cons
 - `Settings.ImageProcessing.EnhanceContrast` --> BOOLEAN enhance image contrast before analyzing (does not change much, since bw threshold is determined afterwards).
 - `Settings.Display.IndividualPlots` --> BOOLEAN Show plots on screen that are created with every iteration (image that shows the fit). Code asks to turn this off if there are >3 images, since it will flood memory.
 - `Settings.Display.TotalPlots` --> BOOLEAN Show plots that are created at the end of the code and only once (independent of number of images present).
+- `Settings.Display.LogoAtStart` --> BOOLEAN Show fancy logo and basic info at start of running code.
 - `Settings.Plot_VisualizeCircle` --> BOOLEAN Plot (image) that shows the fit of and center of drop (a individual plot).
 - `Settings.Plot_TimeVsRadius` --> BOOLEAN Plot Time vs Radius at the end (a total plot).
     - `Settings.Plot_TimeVsRadius_LogX` --> BOOLEAN X scale in log for Time vs Radius plot.
     - `Settings.Plot_TimeVsRadius_LogY` --> BOOLEAN Y scale in log for Time vs Radius plot.
 - `Settings.PlotFontSize` --> INTERGER Font size used in plots
 - `Settings.FigureSize` --> NUMERIC ARRAY Figure size of plots shown. Even when plots are not shown, this is important, as it determines the ratio in which the image is saved. Larger size here does not change final image DPI, but does change how the FontSize looks.
-- `Settings.FigureSaveResolution` --> DPI (Pixels Per Inch) of figures that are saved.
+- `Settings.FigureSaveResolution` --> INTEGER DPI (Pixels Per Inch) of figures that are saved.
 - `Settings.Save_Folder` --> STRING (Local) path of location where data and images are saved.
 - `Settings.Save_Figures` --> BOOLEAN If true figures are saved automatically, even when not displayed to screen.
     - `Settings.Save_PNG` --> BOOLEAN Save figures in PNG format.

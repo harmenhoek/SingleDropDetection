@@ -1,0 +1,7 @@
+   
+       	          ꜱɪɴɢʟᴇ ᴅʀᴏᴘ ʀᴀᴅɪᴜꜱ ᴅᴇᴛᴇᴄᴛɪᴏɴ
+   
+Version        2022-02-16
+Author         Harmen Hoek
+Documentation  https://github.com/harmenhoek/SingleDropDetection
+____________________________________________________________________
