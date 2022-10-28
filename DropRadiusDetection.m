@@ -35,11 +35,11 @@ Recommendation: Set `Settings.CircleFitting` to `always` or `never` to have cons
 % Settings.Source  = 'data\testdata_small\';
 % Settings.Source = 'E:\R-t analysis\drop 3\';            % STRING with (local) path to file or folder with image files.
 
-Settings.Source = 'E:\R-t analysis\drop2';            % STRING with (local) path to file or folder with image files.
-Settings.LensMagnification = 'NikonX4';                 % STRING optional Choose a lens preset used for this experiment to 
+Settings.Source = 'E:\spreading tests\spreading tests_open cell_20221027\1- 200 nm';            % STRING with (local) path to file or folder with image files.
+Settings.LensMagnification = 'Nikon_NikonX2';                 % STRING optional Choose a lens preset used for this experiment to 
     % automatically determine the lateral conversion factor from pixels to meters. Valid options are: ZeisX2, ZeisX5, 
     % ZeisX10, NikonX2, NikonX4. More options can be added to Settings.
-Settings.TimeInterval = 'FromFile';                     % STRING `'FromFile'` or NUMERIC If FromFile, the datetime stamp is 
+Settings.TimeInterval = 1;                     % STRING `'FromFile'` or NUMERIC If FromFile, the datetime stamp is 
     % read from the image filename. This datetime is converted to seconds from start automatically. 
     % `Settings.TimeIntervalFormat` and `Settings.TimeIntervalFilenameFormat` must be set. If NUMERIC, give the time in 
     % seconds between each frame.
@@ -49,7 +49,7 @@ Settings.TimeInterval = 'FromFile';                     % STRING `'FromFile'` or
        % example: 1-02012022152110-1015 -->  {'-', '-'}, with Settings.TimeIntervalFormat = "ddMMyyyyHHmmss"
        % example: recording2022-02-01_15:13:12_image2 --> {'recording','_'}, with .TimeIntervalFormat = "yyyy-MM-dd_HH:mm:ss" 
                 % note that it looks for the last occurance of '_'. '_image' would have given the same result.
-Settings.ImageCrop = [0 0 0 32];                        % NUMERIC ARRAY Cropping image before analysis. A must if you have a 
+Settings.ImageCrop = [0 0 0 0];                        % NUMERIC ARRAY Cropping image before analysis. A must if you have a 
     % death row/column of pixels. [top right down left].
 
 % Settings.ConversionFactorPixToMm = [];                  % STRING optional Manually give the pixels to mm conversion. Only 
@@ -58,12 +58,15 @@ Settings.ImageCrop = [0 0 0 32];                        % NUMERIC ARRAY Cropping
 
 %% SETTINGS
 
-Settings.CircleFitting = 'always'; % STRING, choose `always`, `never`, `boundaryonly`. This determines the method used to 
+Settings.CircleFitting = 'never'; % STRING, choose `always`, `never`, `boundaryonly`. This determines the method used to 
     % determine the drop radius. Always uses circle fitting of the drop edge that does not  touch the border (drop can be 
     % partially out of frame for still good estimate of the radius). Never always uses the equivalent radius of the area of 
     % drop inside the frame to determine the radius. Boundary only uses circle fitting only when drop is moving out of frame.
 
-Settings.ImageSkip = 1; % INTEGER Skip every ImageSkip frames. E.g. 3 analyzes frames 1 4 7, etc. alphabetical order of 
+Settings.Threshold = .6; % STRING 'auto' or FLOAT 0-1 as value. For auto it uses Otsu's method.
+Settings.ForegroundPolarity = 'bright';
+
+Settings.ImageSkip = 10; % INTEGER Skip every ImageSkip frames. E.g. 3 analyzes frames 1 4 7, etc. alphabetical order of 
     % image file names.
 
 % Conversion pix to SI
@@ -73,6 +76,7 @@ Settings.LensPresets.ZeisX5 = 1837;                 % FLOAT   pixels per mm.
 Settings.LensPresets.ZeisX10 = 3679;                % FLOAT   pixels per mm. 
 Settings.LensPresets.NikonX2 = 1355;                % FLOAT   pixels per mm. 
 Settings.LensPresets.NikonX4 = 2700;                % FLOAT   pixels per mm. 
+Settings.LensPresets.Nikon_NikonX2 = 838;                % FLOAT   pixels per mm. 
 
 % Image processing
 Settings.ImageProcessing.EnhanceContrast = true; % BOOLEAN enhance image contrast before analyzing (does not change much, 
@@ -98,7 +102,7 @@ Settings.FigureSize = [25 25 1000 800]; % NUMERIC ARRAY Figure size of plots sho
 Settings.FigureSaveResolution = 300; % INTEGER DPI (Pixels Per Inch) of figures that are saved.
 
 % Saving
-Settings.Save_Folder = 'E:\results'; % STRING (Local) path of location where data and images are saved.
+Settings.Save_Folder = 'E:\spreading tests\spreading tests_open cell_20221027\processed_data'; % STRING (Local) path of location where data and images are saved.
 Settings.Save_Figures = true; % BOOLEAN If true figures are saved automatically, even when not displayed to screen.
     Settings.Save_PNG = true; % BOOLEAN Save figures in PNG format.
     Settings.Save_TIFF = false; % BOOLEAN Save figures in TIFF format (note: slow and large file sizes).
@@ -114,7 +118,7 @@ Settings.CreateTimelapse = true; % BOOLEAN If folder with images is analyzed, an
 
 
 global LogLevel
-LogLevel = 5;  % Recommended at least 2. To reduce clutter use 5. To show all use 6.
+LogLevel = 6;  % Recommended at least 2. To reduce clutter use 5. To show all use 6.
 %{
     1, 'ERROR';     % Code cannot continue.
     2, 'ACTION';    % User needs to do something.
@@ -380,7 +384,11 @@ for i = 1:Settings.ImageCount
         I = adapthisteq(I);
     end
     
-    I_bi = imbinarize(I);
+    if strcmpi(Settings.Threshold, 'auto')
+        I_bi = imbinarize(I, 'adaptive', 'ForegroundPolarity', Settings.ForegroundPolarity);
+    else
+        I_bi = imbinarize(I, Settings.Threshold);
+    end
 
     CC = bwconncomp(imcomplement(I_bi));
     

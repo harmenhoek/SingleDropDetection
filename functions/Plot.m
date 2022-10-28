@@ -16,7 +16,7 @@ classdef Plot
                     pltclr = 'red';
                 end
                 
-                img = insertShape(FigData.I, 'Circle', [FigData.Centroid(1) FigData.Centroid(2) FigData.DiameterPix/2], 'Color', pltclr, 'LineWidth', 25);
+                img = insertShape(FigData.I, 'Circle', [FigData.Centroid(1) FigData.Centroid(2) FigData.DiameterPix/2], 'Color', pltclr, 'LineWidth', 10);
                 imshow(img)
                 hold on
 %                 viscircles(FigData.Centroid, FigData.DiameterPix/2, 'LineWidth', 5, 'Color', pltclr); %DO NOT USE, DRAWS OUTSIDE IMAGE BORDERS.
