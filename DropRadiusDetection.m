@@ -35,12 +35,14 @@ Recommendation: Set `Settings.CircleFitting` to `always` or `never` to have cons
 % Settings.Source  = 'data\testdata_small\';
 % Settings.Source = 'E:\R-t analysis\drop 3\';            % STRING with (local) path to file or folder with image files.
 
-Settings.Source = 'E:\spreading tests\spreading tests_open cell_20221027\1- 200 nm';            % STRING with (local) path to file or folder with image files.
-Settings.LensMagnification = 'Nikon_NikonX2';                 % STRING optional Choose a lens preset used for this experiment to 
+Settings.Source = 'G:\20221031_spreading tests for silicone oil in sio2-nikon 2x piezo\silicone oil spreading on sio2_20221031\3';            % STRING with (local) path to file or folder with image files.
+Settings.LensMagnification = 'NikonX2';                 % STRING optional Choose a lens preset used for this experiment to 
     % automatically determine the lateral conversion factor from pixels to meters. Valid options are: ZeisX2, ZeisX5, 
     % ZeisX10, NikonX2, NikonX4. More options can be added to Settings.
-Settings.TimeInterval = 1;                     % STRING `'FromFile'` or NUMERIC If FromFile, the datetime stamp is 
-    % read from the image filename. This datetime is converted to seconds from start automatically. 
+Settings.TimeInterval = 'FromCreationDate';            % STRING 'FromFile', 'FromCreationDate' or NUMERIC. If FromFile, the datetime stamp is 
+    % read from the image filename. This datetime is converted to seconds
+    % from start automatically. If FromCreationDate the creation date from
+    % the image properties are used.
     % `Settings.TimeIntervalFormat` and `Settings.TimeIntervalFilenameFormat` must be set. If NUMERIC, give the time in 
     % seconds between each frame.
     Settings.TimeIntervalFormat = 'ddMMyyyyHHmmss';     % STRING datetime format. See MATLAB documentation on datetime.
@@ -52,22 +54,25 @@ Settings.TimeInterval = 1;                     % STRING `'FromFile'` or NUMERIC 
 Settings.ImageCrop = [0 0 0 0];                        % NUMERIC ARRAY Cropping image before analysis. A must if you have a 
     % death row/column of pixels. [top right down left].
 
+
 % Settings.ConversionFactorPixToMm = [];                  % STRING optional Manually give the pixels to mm conversion. Only 
     % works if LensMagnification is not set. If LensMagnification and ConversionFactorPixToMm are not set, pixels are used 
     % as lateral unit.
 
 %% SETTINGS
 
-Settings.CircleFitting = 'never'; % STRING, choose `always`, `never`, `boundaryonly`. This determines the method used to 
+Settings.CircleFitting = 'boundaryonly'; % STRING, choose `always`, `never`, `boundaryonly`. This determines the method used to 
     % determine the drop radius. Always uses circle fitting of the drop edge that does not  touch the border (drop can be 
     % partially out of frame for still good estimate of the radius). Never always uses the equivalent radius of the area of 
     % drop inside the frame to determine the radius. Boundary only uses circle fitting only when drop is moving out of frame.
 
-Settings.Threshold = .6; % STRING 'auto' or FLOAT 0-1 as value. For auto it uses Otsu's method.
-Settings.ForegroundPolarity = 'bright';
+Settings.Threshold = 'auto'; % STRING 'auto' or FLOAT 0-1 as value. For auto it uses Otsu's method, if set value, adaptive is used.
+Settings.ForegroundPolarity = 'dark';  % STRING 'bright' or 'dark'. Only when manual threshold is set.
 
-Settings.ImageSkip = 10; % INTEGER Skip every ImageSkip frames. E.g. 3 analyzes frames 1 4 7, etc. alphabetical order of 
-    % image file names.
+Settings.CustomTimeRange = [1:15 20:5:100 110:10:400];
+Settings.ImageSkip = 1; % INTEGER Skip every ImageSkip frames. E.g. 3 analyzes frames 1 4 7, etc. alphabetical order of 
+    % image file names. Only if CustomTimeRange is false.
+    
 
 % Conversion pix to SI
 Settings.LensPresets.ZeisX2 = 677;                  % FLOAT   pixels per mm. Standard presets to use as conversion, assuming 
@@ -182,7 +187,13 @@ if Settings.AnalyzeFolder
         Settings.Source_ImageList = [Settings.Source_ImageList, images_fullpath];
     end
     Settings.Source_ImageList = natsortfiles(Settings.Source_ImageList); % Stephen (2022). Natural-Order Filename Sort (https://www.mathworks.com/matlabcentral/fileexchange/47434-natural-order-filename-sort), MATLAB Central File Exchange. Retrieved January 27, 2022. 
-    Settings.Analysis_ImageList = Settings.Source_ImageList(1:Settings.ImageSkip:length(Settings.Source_ImageList));
+    if Settings.CustomTimeRange
+        Settings.CustomTimeRange = Settings.CustomTimeRange(Settings.CustomTimeRange < length(Settings.Source_ImageList));
+        Settings.Analysis_ImageList = Settings.Source_ImageList(Settings.CustomTimeRange);
+        Logging(2, 'CustomTimeRange is used. If given indices are out of range, they will be ignored.')
+    else
+        Settings.Analysis_ImageList = Settings.Source_ImageList(1:Settings.ImageSkip:length(Settings.Source_ImageList));
+    end
 
     if isempty(Settings.Source_ImageList)
         Logging(1, 'No images found in Source folder.')
@@ -197,6 +208,8 @@ if Settings.AnalyzeFolder
         Logging(1, 'TimeInterval is not set. Add "Settings.Timeinterval" to your settings.')
     elseif strcmpi(Settings.TimeInterval, 'FromFile')
         Logging(5, 'Time intervals will be determined from filenames.')
+    elseif strcmpi(Settings.TimeInterval, 'FromCreationDate')
+        Logging(5, 'Time intervals will be determined from file creation dates.')
     elseif CheckIfClass('numeric', {'Settings.TimeInterval'})
         Settings.TimeRange = 0:Settings.TimeInterval:Settings.TimeInterval*Settings.ImageCount_SourceFolder;
         Settings.TimeRange = Settings.TimeRange(1:Settings.ImageSkip:Settings.ImageCount_SourceFolder);
@@ -343,6 +356,14 @@ if strcmpi(Settings.TimeInterval, 'FromFile')
         Results.Time{i} = datetime(datetimestamp_sub, 'InputFormat', Settings.TimeIntervalFormat); 
     end
     Results.TimeFromStart = cellfun(@(x) seconds(time(between(Results.Time{1}, x, 'time'))), Results.Time);
+elseif strcmpi(Settings.TimeInterval, 'FromCreationDate')
+    Logging(5, 'Timestamps are read from image creation dates ...')
+    for i = 1:Settings.ImageCount 
+        Image = Settings.Analysis_ImageList{i};
+        meta = System.IO.File.GetCreationTime(Image);
+        Results.Time{i} = datetime(meta.Year, meta.Month, meta.Day, meta.Hour, meta.Minute, meta.Second);
+    end
+    Results.TimeFromStart = cellfun(@(x) seconds(time(between(Results.Time{1}, x, 'time'))), Results.Time);
 elseif CheckIfClass('numeric', {'Settings.TimeInterval'})
     Results.TimeFromStart = (1:Settings.ImageCount) * Settings.TimeInterval;
 else
@@ -385,7 +406,8 @@ for i = 1:Settings.ImageCount
     end
     
     if strcmpi(Settings.Threshold, 'auto')
-        I_bi = imbinarize(I, 'adaptive', 'ForegroundPolarity', Settings.ForegroundPolarity);
+        I_bi = imbinarize(I);
+       % I_bi = imbinarize(I, 'adaptive', 'ForegroundPolarity', 'dark');
     else
         I_bi = imbinarize(I, Settings.Threshold);
     end
@@ -434,9 +456,9 @@ for i = 1:Settings.ImageCount
             Results.CircleFittingUsed(i) = false;
         end
         
-        
+        [~,name,~] = fileparts(Settings.Analysis_ImageList(i));
         f1 = Plot.VisualizeCircle(Settings, struct('I',I_or, 'Centroid',Results.Centroid{i}, 'DiameterPix',Results.DiameterPix(i), 'CircleFittingUsed',Results.CircleFittingUsed(i)));
-        SaveFigure(min([Settings.Save_Figures Settings.Plot_VisualizeCircle]), f1, save_extensions, append(basename_VisualizeCircle, '_VisualizeCircle_', num2str(i)), Settings.FigureSaveResolution);
+        SaveFigure(min([Settings.Save_Figures Settings.Plot_VisualizeCircle]), f1, save_extensions, append(basename_VisualizeCircle, '_', name, '_VisualizeCircle_', num2str(i)), Settings.FigureSaveResolution);
         if ~Settings.Display.IndividualPlots; close(f1); end % must close, even if not visible, otherwise in memory
     end
 
